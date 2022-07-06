@@ -1,5 +1,5 @@
 {
-  "name": "danigta/test-ftp-deploy",
+  "name": "test-ftp-deploy",
   "version": "1.2.1",
   "private": false,
   "description": "Deploy files to a ftp server",
