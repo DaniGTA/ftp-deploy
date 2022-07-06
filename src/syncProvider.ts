@@ -1,13 +1,13 @@
 import prettyBytes from "pretty-bytes";
-import type * as ftp from "basic-ftp";
+import FTPS from "ftps";
 import { DiffResult, ErrorCode, IFilePath } from "./types";
 import { ILogger, pluralize, retryRequest, ITimings } from "./utilities";
 
-export async function ensureDir(client: ftp.Client, logger: ILogger, timings: ITimings, folder: string): Promise<void> {
+export async function ensureDir(client: FTPS, logger: ILogger, timings: ITimings, folder: string): Promise<void> {
     timings.start("changingDir");
     logger.verbose(`  changing dir to ${folder}`);
 
-    await retryRequest(logger, async () => await client.ensureDir(folder));
+    await retryRequest(logger, async () => await client.cd(folder).exec(console.log));
 
     logger.verbose(`  dir changed`);
     timings.stop("changingDir");
@@ -29,7 +29,7 @@ interface ISyncProvider {
 }
 
 export class FTPSyncProvider implements ISyncProvider {
-    constructor(client: ftp.Client, logger: ILogger, timings: ITimings, localPath: string, serverPath: string, stateName: string, dryRun: boolean) {
+    constructor(client: FTPS, logger: ILogger, timings: ITimings, localPath: string, serverPath: string, stateName: string, dryRun: boolean) {
         this.client = client;
         this.logger = logger;
         this.timings = timings;
@@ -39,7 +39,7 @@ export class FTPSyncProvider implements ISyncProvider {
         this.dryRun = dryRun;
     }
 
-    private client: ftp.Client;
+    private client: FTPS;
     private logger: ILogger;
     private timings: ITimings;
     private localPath: string;
@@ -75,7 +75,7 @@ export class FTPSyncProvider implements ISyncProvider {
 
         // navigate back to the starting folder
         for (let i = 0; i < dirCount; i++) {
-            await retryRequest(this.logger, async () => await this.client.cdup());
+            await retryRequest(this.logger, async () => await this.client.cd("../").exec(console.log));
         }
     }
 
@@ -106,7 +106,7 @@ export class FTPSyncProvider implements ISyncProvider {
 
         if (this.dryRun === false) {
             try {
-                await retryRequest(this.logger, async () => await this.client.remove(filePath));
+                await retryRequest(this.logger, async () => await this.client.remove(filePath).exec(console.log));
             }
             catch (e: any) {
                 // this error is common when a file was deleted on the server directly
@@ -128,7 +128,7 @@ export class FTPSyncProvider implements ISyncProvider {
         this.logger.all(`removing folder "${absoluteFolderPath}"`);
 
         if (this.dryRun === false) {
-            await retryRequest(this.logger, async () => await this.client.removeDir(absoluteFolderPath));
+            await retryRequest(this.logger, async () => await this.client.rmdir(absoluteFolderPath).exec(console.log));
         }
 
         this.logger.verbose(`  completed`);
@@ -140,7 +140,7 @@ export class FTPSyncProvider implements ISyncProvider {
         this.logger.all(`${typePresent} "${filePath}"`);
 
         if (this.dryRun === false) {
-            await retryRequest(this.logger, async () => await this.client.uploadFrom(this.localPath + filePath, filePath));
+            await retryRequest(this.logger, async () => await this.client.put(this.localPath + filePath, filePath).exec(console.log));
         }
 
         this.logger.verbose(`  file ${typePast}`);
@@ -183,7 +183,7 @@ export class FTPSyncProvider implements ISyncProvider {
         this.logger.all(`----------------------------------------------------------------`);
         this.logger.all(`🎉 Sync complete. Saving current server state to "${this.serverPath + this.stateName}"`);
         if (this.dryRun === false) {
-            await retryRequest(this.logger, async () => await this.client.uploadFrom(this.localPath + this.stateName, this.stateName));
+            await retryRequest(this.logger, async () => await this.client.put(this.localPath + this.stateName, this.stateName));
         }
     }
 }

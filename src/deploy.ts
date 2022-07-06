@@ -1,4 +1,4 @@
-import * as ftp from "basic-ftp";
+import FTPS from "ftps";
 import fs from "fs";
 import { IFileList, IDiff, syncFileDescription, currentSyncFileVersion, IFtpDeployArgumentsWithDefaults } from "./types";
 import { HashDiff } from "./HashDiff";
@@ -8,12 +8,12 @@ import { prettyError } from "./errorHandling";
 import { ensureDir, FTPSyncProvider } from "./syncProvider";
 import { getLocalFiles } from "./localFiles";
 
-async function downloadFileList(client: ftp.Client, logger: ILogger, path: string): Promise<IFileList> {
+async function downloadFileList(client: FTPS, logger: ILogger, path: string): Promise<IFileList> {
     // note: originally this was using a writable stream instead of a buffer file
     // basic-ftp doesn't seam to close the connection when using steams over some ftps connections. This appears to be dependent on the ftp server
     const tempFileNameHack = ".ftp-deploy-sync-server-state-buffer-file---delete.json";
 
-    await retryRequest(logger, async () => await client.downloadTo(tempFileNameHack, path));
+    await retryRequest(logger, async () => await client.getFile(tempFileNameHack, path).exec(console.log));
 
     const fileAsString = fs.readFileSync(tempFileNameHack, { encoding: "utf-8" });
     const fileAsObject = JSON.parse(fileAsString) as IFileList;
@@ -29,51 +29,43 @@ function createLocalState(localFiles: IFileList, logger: ILogger, args: IFtpDepl
     logger.verbose("Local state created");
 }
 
-async function connect(client: ftp.Client, args: IFtpDeployArgumentsWithDefaults, logger: ILogger) {
-    let secure: boolean | "implicit" = false;
+async function connect(args: IFtpDeployArgumentsWithDefaults, logger: ILogger) {
+    let protocol: string = "ftp";
     if (args.protocol === "ftps") {
-        secure = true;
+        protocol = "ftps";
     }
     else if (args.protocol === "ftps-legacy") {
-        secure = "implicit";
+        protocol = "sftp";
     }
 
-    client.ftp.verbose = args["log-level"] === "verbose";
-
-    const rejectUnauthorized = args.security === "strict";
+    //const rejectUnauthorized = args.security === "strict";
 
     try {
-        await client.access({
+        var client = new FTPS({
             host: args.server,
-            user: args.username,
+            username: args.username,
             password: args.password,
             port: args.port,
-            secure: secure,
-            secureOptions: {
-                rejectUnauthorized: rejectUnauthorized
-            }
+            protocol: protocol
         });
+        return client;
     }
     catch (error) {
         logger.all("Failed to connect, are you sure your server works via FTP or FTPS? Users sometimes get this error when the server only supports SFTP.");
         throw error;
     }
 
-    if (args["log-level"] === "verbose") {
-        client.trackProgress(info => {
-            logger.verbose(`${info.type} progress for "${info.name}". Progress: ${info.bytes} bytes of ${info.bytesOverall} bytes`);
-        });
-    }
+
 }
 
-async function getServerFiles(client: ftp.Client, logger: ILogger, timings: ITimings, args: IFtpDeployArgumentsWithDefaults): Promise<IFileList> {
+async function getServerFiles(client: FTPS, logger: ILogger, timings: ITimings, args: IFtpDeployArgumentsWithDefaults): Promise<IFileList> {
     try {
         await ensureDir(client, logger, timings, args["server-dir"]);
 
         if (args["dangerous-clean-slate"]) {
             logger.all(`----------------------------------------------------------------`);
             logger.all("🗑️ Removing all files on the server because 'dangerous-clean-slate' was set, this will make the deployment very slow...");
-            await client.clearWorkingDir();
+            await client.rmdir(client.ls().exec(console.log));
             logger.all("Clear complete");
 
             throw new Error("nope");
@@ -125,11 +117,11 @@ export async function deploy(args: IFtpDeployArgumentsWithDefaults, logger: ILog
 
     createLocalState(localFiles, logger, args);
 
-    const client = new ftp.Client();
+    let client = null;
 
     global.reconnect = async function () {
         timings.start("connecting");
-        await connect(client, args, logger);
+        client = await connect(args, logger);
         timings.stop("connecting");
     }
 
@@ -137,7 +129,9 @@ export async function deploy(args: IFtpDeployArgumentsWithDefaults, logger: ILog
     let totalBytesUploaded = 0;
     try {
         await global.reconnect();
-
+        if (client == null) {
+            return;
+        }
         const serverFiles = await getServerFiles(client, logger, timings, args);
 
         timings.start("logging");
@@ -196,7 +190,6 @@ export async function deploy(args: IFtpDeployArgumentsWithDefaults, logger: ILog
         throw error;
     }
     finally {
-        client.close();
         timings.stop("total");
     }
 

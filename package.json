@@ -27,6 +27,7 @@
   "license": "MIT",
   "dependencies": {
     "basic-ftp": "^4.6.6",
+    "ftps": "^1.2.0",
     "lodash": "^4.17.21",
     "multimatch": "^5.0.0",
     "np": "^7.5.0",
@@ -36,6 +37,7 @@
     "yargs": "^17.2.1"
   },
   "devDependencies": {
+    "@types/ftps": "^1.1.2",
     "@types/jest": "^27.0.2",
     "@types/lodash": "^4.14.170",
     "@types/minimatch": "^3.0.4",

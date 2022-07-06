@@ -264,11 +264,11 @@ describe("FTP sync commands", () => {
 
         const mockClient = {
             ensureDir() { },
-            uploadFrom() { },
+            put() { return { exec() { } } },
         };
         const syncProvider = new FTPSyncProvider(mockClient as any, mockedLogger, mockedTimings, "local-dir/", "server-dir/", "state-name", false);
         const spyRemoveFile = jest.spyOn(syncProvider, "uploadFile");
-        const mockClientUploadFrom = jest.spyOn(mockClient, "uploadFrom");
+        const mockClientUploadFrom = jest.spyOn(mockClient, "put");
         await syncProvider.syncLocalToServer(diffs);
 
         expect(spyRemoveFile).toHaveBeenCalledTimes(1);
@@ -277,6 +277,7 @@ describe("FTP sync commands", () => {
         expect(mockClientUploadFrom).toHaveBeenCalledTimes(2);
         expect(mockClientUploadFrom).toHaveBeenNthCalledWith(1, "local-dir/path/file.txt", "path/file.txt");
         expect(mockClientUploadFrom).toHaveBeenNthCalledWith(2, "local-dir/state-name", "state-name");
+
     });
 
     test("rename file", async () => {
@@ -320,12 +321,12 @@ describe("FTP sync commands", () => {
         const mockClient = {
             ensureDir() { },
             remove() { },
-            uploadFrom() { },
+            put() { return { exec() { } } },
         };
         const syncProvider = new FTPSyncProvider(mockClient as any, mockedLogger, mockedTimings, "local-dir/", "server-dir/", "state-name", false);
         const spyUploadFile = jest.spyOn(syncProvider, "uploadFile");
         const spyRemoveFile = jest.spyOn(syncProvider, "removeFile");
-        const mockClientUploadFrom = jest.spyOn(mockClient, "uploadFrom");
+        const mockClientUploadFrom = jest.spyOn(mockClient, "put");
         const mockClientRemove = jest.spyOn(mockClient, "remove");
         await syncProvider.syncLocalToServer(diffs);
 
@@ -384,11 +385,11 @@ describe("FTP sync commands", () => {
         const mockClient = {
             ensureDir() { },
             remove() { },
-            uploadFrom() { },
+            put() { return { exec() { } } },
         };
         const syncProvider = new FTPSyncProvider(mockClient as any, mockedLogger, mockedTimings, "local-dir/", "server-dir/", "state-name", false);
         const spyUploadFile = jest.spyOn(syncProvider, "uploadFile");
-        const mockClientUploadFrom = jest.spyOn(mockClient, "uploadFrom");
+        const mockClientUploadFrom = jest.spyOn(mockClient, "put");
         await syncProvider.syncLocalToServer(diffs);
 
         expect(spyUploadFile).toHaveBeenCalledTimes(1);
@@ -433,12 +434,12 @@ describe("FTP sync commands", () => {
         const mockClient = {
             ensureDir() { },
             remove() { },
-            uploadFrom() { },
+            put() { return { exec() { } } },
         };
         const syncProvider = new FTPSyncProvider(mockClient as any, mockedLogger, mockedTimings, "local-dir/", "server-dir/", "state-name", false);
         const spyRemoveFile = jest.spyOn(syncProvider, "removeFile");
         const mockClientRemove = jest.spyOn(mockClient, "remove");
-        const mockClientUploadFrom = jest.spyOn(mockClient, "uploadFrom");
+        const mockClientUploadFrom = jest.spyOn(mockClient, "put");
         await syncProvider.syncLocalToServer(diffs);
 
         expect(spyRemoveFile).toHaveBeenCalledTimes(1);
